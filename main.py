@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk  # adds additional features such as progress bars and buttons with more options.
 from tkcalendar import Calendar, DateEntry
 import webbrowser
 from datetime import datetime
@@ -51,6 +51,10 @@ class PlaylistCreator:
 
         song_names_spans = soup.select("li ul li h3")
         song_names_list = [song.getText().strip() for song in song_names_spans]
+        song_artist_spans = soup.select("li ul li:nth-of-type(1) span")
+        song_artists_list = [artist.getText().strip() for artist in song_artist_spans]
+        print(song_names_list)
+        print(song_artists_list)
 
         # Format the date for the playlist name
         self.playlist_name = f"Billboard Top 100 {user_date.strftime('%B %Y')}"
@@ -58,8 +62,8 @@ class PlaylistCreator:
         playlist = self.sp.user_playlist_create(self.sp.current_user()["id"], self.playlist_name, public=False, description=playlist_description)
 
         # Playlist creation
-        for idx, song_name in enumerate(song_names_list, start=1):
-            results = self.sp.search(q=song_name, type="track")
+        for idx, (song_name, artist_name) in enumerate(zip(song_names_list, song_artists_list), start=1):
+            results = self.sp.search(q=f"{song_name} artist:{artist_name}", type="track")
             if results['tracks']['items']:
                 track_uri = results['tracks']['items'][0]['uri']
                 self.sp.playlist_add_items(playlist['id'], [track_uri])
@@ -73,24 +77,36 @@ class GUI(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Billboard Top 100 Playlist Creator")
-        self.geometry("400x300")
+        self.geometry("220x300")
+        self.configure(padx=10)
 
         self.playlist_creator = PlaylistCreator()
 
-        self.welcome_label = tk.Label(self, text="Welcome!\n\nSelect a date to create a Billboard Top 100 playlist.")
-        self.welcome_label.pack(pady=10)
+        self.create_button()
+
+        self.welcome_label = tk.Label(self, text="THE TOP 100 PLAYLIST GENERATOR\n\n", wrap=150, font=("Oswald", 16, "bold"))
+        self.welcome_label.grid(row=1, column=0, columnspan=3, pady=(30, 0))        
 
         self.cal = DateEntry(self, width=12, background='darkblue', foreground='white', borderwidth=2)
-        self.cal.pack(padx=10, pady=10)
+        self.cal.grid(row=3, column=1, padx=10, pady=(0, 10))
 
-        self.btn = ttk.Button(self, text="Get Selected Date", command=self.get_selected_date)
-        self.btn.pack(pady=10)
+        self.btn = ttk.Button(self, text="Submit Date", command=self.get_selected_date)
+        self.btn.grid(row=3, column=2, pady=(0, 10))
 
         self.progress_bar = ttk.Progressbar(self, orient=tk.HORIZONTAL, length=200, mode='determinate')
-        self.progress_bar.pack(pady=10)
+        self.progress_bar.grid(row=4, column=1, columnspan=3, pady=0)
 
         self.playlist_link_btn = ttk.Button(self, text="Playlist Link", command=self.open_playlist_link, state=tk.DISABLED)
-        self.playlist_link_btn.pack(pady=10)
+        self.playlist_link_btn.grid(row=5, column=1, columnspan=3, pady=(10, 0))
+
+    def create_button(self):
+        def show_instructions():
+            message = ("To create a Billboard Top 100 playlist, select a date from the dropdown menu below.\n\n"
+                       "The Playlist Link button will become available once your playlist is ready.")
+            messagebox.showinfo("Instructions", message)
+
+        self.button = tk.Button(self, text="Help", command=show_instructions)
+        self.button.grid(row=0, column=2, sticky="e", pady=0)
 
     def get_selected_date(self):
         # retrieves the selected date from the date selection widget, adjusts the year if necessary, and starts a new thread to create the playlist using the PlaylistCreator class.
